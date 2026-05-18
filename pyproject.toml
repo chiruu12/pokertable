@@ -1,5 +1,5 @@
 [project]
-name = "poker-engine"
+name = "hive-poker-engine"
 version = "0.1.0"
 description = "Pure Texas Hold'em engine with equity calculator. Designed for AI agents."
 authors = [{ name = "chiruu12" }]
