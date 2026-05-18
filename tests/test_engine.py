@@ -103,7 +103,7 @@ def test_all_in_side_pot():
         engine.apply_action(p.name, Action(ActionType.ALL_IN, p.chips + p.bet_this_round))
     while engine.phase not in (Phase.SHOWDOWN, Phase.HAND_OVER):
         engine.advance_phase()
-    summary = engine.resolve_showdown()
+    engine.resolve_showdown()
     total_after = sum(p.chips for p in engine.players)
     assert total_after == total_before
 
@@ -159,6 +159,6 @@ def test_chips_conserved_across_hand():
         if p is None:
             break
         engine.apply_action(p.name, Action(ActionType.CHECK))
-    summary = engine.resolve_showdown()
+    engine.resolve_showdown()
     total_after = sum(p.chips for p in engine.players)
     assert total_after == total_before
