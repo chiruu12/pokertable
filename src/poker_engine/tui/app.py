@@ -128,7 +128,6 @@ class PokerTUI:
 
         if self._live is not None:
             self._live.update(self.build_layout())
-            self._live.refresh()
 
     def _sync_chips_from_engine(self) -> None:
         """Pull chip counts and position tags from engine (these change on actions)."""
@@ -202,14 +201,13 @@ class PokerTUI:
 
         with Live(
             self.build_layout(),
-            auto_refresh=False,
+            refresh_per_second=10,
             screen=False,
         ) as live:
             self._live = live
             while not tournament_task.done():
-                await asyncio.sleep(0.25)
+                await asyncio.sleep(0.1)
             live.update(self.build_layout())
-            live.refresh()
             await asyncio.sleep(0.5)
         self._live = None
 
