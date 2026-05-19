@@ -162,3 +162,64 @@ def test_chips_conserved_across_hand():
     engine.resolve_showdown()
     total_after = sum(p.chips for p in engine.players)
     assert total_after == total_before
+
+
+# --- Ante tests ---
+
+
+def test_ante_posts_before_blinds():
+    engine = PokerEngine(
+        ["A", "B", "C"], starting_chips=1000,
+        small_blind=10, big_blind=20, ante=5, seed=1,
+    )
+    engine.new_hand()
+    # 3 players x 5 ante = 15, plus SB 10 + BB 20 = 30 → total pot = 45
+    assert engine.pot == 45
+
+
+def test_ante_zero_no_effect():
+    engine = PokerEngine(
+        ["A", "B", "C"], starting_chips=1000,
+        small_blind=10, big_blind=20, ante=0, seed=1,
+    )
+    engine.new_hand()
+    assert engine.pot == 30
+
+
+def test_ante_chips_conserved():
+    engine = PokerEngine(["A", "B", "C"], starting_chips=500, ante=5, seed=42)
+    total_before = sum(p.chips for p in engine.players)
+    engine.new_hand()
+    while not engine.is_betting_round_complete():
+        p = engine.get_current_player()
+        if p is None:
+            break
+        actions = engine.get_valid_actions(p.name)
+        check_call = next(
+            (a for a in actions if a.type in (ActionType.CHECK, ActionType.CALL)), actions[0]
+        )
+        engine.apply_action(p.name, check_call)
+    engine.resolve_showdown()
+    total_after = sum(p.chips for p in engine.players)
+    assert total_after == total_before
+
+
+def test_ante_short_stack_all_in():
+    engine = PokerEngine(["A", "B", "C"], starting_chips=1000, ante=5, seed=1)
+    engine.players[0].chips = 3
+    engine.new_hand()
+    assert engine.players[0].all_in is True
+    assert engine.players[0].chips == 0
+    assert engine.players[0].bet_this_hand == 3
+
+
+def test_ante_in_bet_this_hand_not_round():
+    engine = PokerEngine(["A", "B", "C"], starting_chips=1000, ante=5, seed=1)
+    engine.new_hand()
+    for p in engine.players:
+        if not p.folded:
+            assert p.bet_this_hand >= 5
+            # Ante doesn't count as a round-level bet (only blinds do)
+            # SB and BB have bet_this_round from blinds, others have 0
+            if p.bet_this_round > 0:
+                assert p.bet_this_round in (10, 20)  # SB or BB amounts

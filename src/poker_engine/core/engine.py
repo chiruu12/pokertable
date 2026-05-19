@@ -97,11 +97,13 @@ class PokerEngine:
         starting_chips: int = 1000,
         small_blind: int = 10,
         big_blind: int = 20,
+        ante: int = 0,
         seed: int | None = None,
     ):
         self._rng = random.Random(seed)
         self._small_blind = small_blind
         self._big_blind = big_blind
+        self._ante = ante
         self._starting_chips = starting_chips
 
         self.players = [PlayerState(name=n, chips=starting_chips) for n in player_names]
@@ -148,6 +150,16 @@ class PokerEngine:
             if not p.folded:
                 p.hands_played += 1
 
+        if self._ante > 0:
+            for p in self.players:
+                if not p.folded:
+                    ante_amount = min(self._ante, p.chips)
+                    p.chips -= ante_amount
+                    p.bet_this_hand += ante_amount
+                    self.pot += ante_amount
+                    if p.chips == 0:
+                        p.all_in = True
+
         for p in self.players:
             if not p.folded:
                 p.hole_cards = [self._deal(), self._deal()]
@@ -181,18 +193,18 @@ class PokerEngine:
         sb_amount = min(self._small_blind, sb_player.chips)
         sb_player.chips -= sb_amount
         sb_player.bet_this_round = sb_amount
-        sb_player.bet_this_hand = sb_amount
+        sb_player.bet_this_hand += sb_amount
         if sb_player.chips == 0:
             sb_player.all_in = True
 
         bb_amount = min(self._big_blind, bb_player.chips)
         bb_player.chips -= bb_amount
         bb_player.bet_this_round = bb_amount
-        bb_player.bet_this_hand = bb_amount
+        bb_player.bet_this_hand += bb_amount
         if bb_player.chips == 0:
             bb_player.all_in = True
 
-        self.pot = sb_amount + bb_amount
+        self.pot += sb_amount + bb_amount
         self.current_bet = bb_amount
 
     def _set_action_order_preflop(self) -> None:
