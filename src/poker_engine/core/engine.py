@@ -76,6 +76,7 @@ class ShowdownResult:
     hand_description: str
     hole_cards: list[Card]
     winnings: int
+    contested_win: bool = False
 
 
 @dataclass
@@ -437,6 +438,8 @@ class PokerEngine:
             if not eligible:
                 continue
 
+            contested = len(eligible) > 1
+
             hands = []
             for p in eligible:
                 all_cards = p.hole_cards + self.community
@@ -457,13 +460,16 @@ class PokerEngine:
             for i, (p, h) in enumerate(pot_winners):
                 winnings = share + (1 if i < remainder else 0)
                 p.chips += winnings
-                p.hands_won += 1
+                if contested:
+                    p.hands_won += 1
                 if p.name not in winners:
                     winners.append(p.name)
 
                 existing = next((r for r in results if r.player_name == p.name), None)
                 if existing:
                     existing.winnings += winnings
+                    if contested:
+                        existing.contested_win = True
                 else:
                     results.append(
                         ShowdownResult(
@@ -472,6 +478,7 @@ class PokerEngine:
                             hand_description=describe_hand(h),
                             hole_cards=list(p.hole_cards),
                             winnings=winnings,
+                            contested_win=contested,
                         )
                     )
 

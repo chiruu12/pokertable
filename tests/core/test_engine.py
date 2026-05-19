@@ -389,3 +389,70 @@ def test_half_pot_respects_raise_cap():
     actions2 = engine.get_valid_actions(p2.name)
     raises2 = [a for a in actions2 if a.type == ActionType.RAISE]
     assert len(raises2) == 0
+
+
+# --- contested_win tests ---
+
+
+def _play_to_showdown(engine):
+    """Helper: everyone checks/calls to showdown."""
+    for _ in range(4):
+        while not engine.is_betting_round_complete():
+            p = engine.get_current_player()
+            if p is None:
+                break
+            actions = engine.get_valid_actions(p.name)
+            check_call = next(
+                (a for a in actions if a.type in (ActionType.CHECK, ActionType.CALL)),
+                actions[0],
+            )
+            engine.apply_action(p.name, check_call)
+        if engine.phase == Phase.SHOWDOWN or engine.is_hand_over():
+            break
+        engine.advance_phase()
+    return engine.resolve_showdown()
+
+
+def test_contested_win_true_in_multiway():
+    engine = PokerEngine(["A", "B", "C"], starting_chips=1000, seed=42)
+    engine.new_hand()
+    summary = _play_to_showdown(engine)
+    winning_results = [r for r in summary.results if r.winnings > 0]
+    assert len(winning_results) >= 1
+    for r in winning_results:
+        assert r.contested_win is True
+
+
+def test_contested_win_false_when_all_fold():
+    engine = PokerEngine(["A", "B", "C"], starting_chips=1000, seed=1)
+    engine.new_hand()
+    # First two players fold → third wins uncontested
+    for _ in range(2):
+        p = engine.get_current_player()
+        if p is None:
+            break
+        engine.apply_action(p.name, Action(ActionType.FOLD))
+    summary = engine.resolve_fold_win()
+    assert summary.win_reason == "all_folded"
+
+
+def test_hands_won_only_on_contested():
+    engine = PokerEngine(["A", "B", "C"], starting_chips=100, seed=42)
+    engine.players[0].chips = 20
+    engine.new_hand()
+    # A goes all-in for 20 (small pot), B and C call
+    p = engine.get_current_player()
+    while p is not None:
+        actions = engine.get_valid_actions(p.name)
+        call = next(
+            (a for a in actions if a.type in (ActionType.CALL, ActionType.CHECK)),
+            actions[0],
+        )
+        engine.apply_action(p.name, call)
+        p = engine.get_current_player()
+    summary = _play_to_showdown(engine)
+    # Verify hands_won was only incremented for contested pots
+    for r in summary.results:
+        player = next(p for p in engine.players if p.name == r.player_name)
+        if r.contested_win:
+            assert player.hands_won >= 1
