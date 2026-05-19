@@ -9,7 +9,7 @@ from rich.text import Text
 
 BOX_W = 14
 CENTER_W = 28
-TABLE_W = 66
+TABLE_W = 72
 
 SEAT_LAYOUTS: dict[int, list[list[int | None]]] = {
     2: [[1], [None], [0]],
@@ -23,6 +23,10 @@ SEAT_LAYOUTS: dict[int, list[list[int | None]]] = {
 }
 
 SUIT_STYLES = {"♥": "bold red", "♦": "bold red", "♠": "bold blue", "♣": "bold blue"}
+PLAYER_BOX_LINES = 5
+FULL_BOX_W = BOX_W + 2
+CENTER_BOX_W = CENTER_W + 2
+GAP = 2
 
 
 def _pad_center(text: str, width: int) -> str:
@@ -30,6 +34,12 @@ def _pad_center(text: str, width: int) -> str:
         return text[:width]
     pad = (width - len(text)) // 2
     return " " * pad + text + " " * (width - len(text) - pad)
+
+
+def _center_line(line: str, plain_len: int) -> str:
+    """Center a line (which may contain Rich markup) within TABLE_W."""
+    pad = max(0, (TABLE_W - plain_len) // 2)
+    return " " * pad + line
 
 
 def _color_card(c: str) -> str:
@@ -43,19 +53,10 @@ def _color_cards_inline(cards: list[str]) -> str:
     return " ".join(_color_card(c) for c in cards)
 
 
-def _color_cards_padded(cards: list[str], width: int) -> str:
-    plain = " ".join(cards)
-    rich = _color_cards_inline(cards)
-    pad = max(0, (width - len(plain)) // 2)
-    fill = max(0, width - pad - len(plain))
-    return " " * pad + rich + " " * fill
-
-
 def _make_player_box(player: dict[str, Any] | None) -> list[str]:
-    full_w = BOX_W + 2
     if player is None:
-        blank = " " * full_w
-        return [blank, blank, blank, blank, blank]
+        blank = " " * FULL_BOX_W
+        return [blank] * PLAYER_BOX_LINES
 
     name = player["name"]
     chips = player["chips"]
@@ -137,6 +138,27 @@ def _make_center_box(community: list[str], pot: int, hand_num: int) -> list[str]
     ]
 
 
+def _join_boxes_horizontal(boxes: list[list[str]], gap: int = GAP) -> tuple[list[str], int]:
+    """Join multiple boxes side by side. Returns (lines, total_plain_width)."""
+    if not boxes:
+        return [], 0
+    max_lines = max(len(b) for b in boxes)
+    for b in boxes:
+        while len(b) < max_lines:
+            b.insert(0, " " * FULL_BOX_W)
+
+    total_w = len(boxes) * FULL_BOX_W + (len(boxes) - 1) * gap
+    result = []
+    for line_idx in range(max_lines):
+        parts = []
+        for b_idx, box in enumerate(boxes):
+            if b_idx > 0:
+                parts.append(" " * gap)
+            parts.append(box[line_idx])
+        result.append("".join(parts))
+    return result, total_w
+
+
 class TableView:
     """Renders the poker table with player seats around an oval."""
 
@@ -173,7 +195,7 @@ class TableView:
             elif layout_key == 3 and row_idx == 1:
                 lines.extend(self._sides_with_center(seat_indices, center))
             elif layout_key == 2 and row_idx == 1:
-                lines.extend(self._center_only(center))
+                lines.extend(self._centered_block(center, CENTER_BOX_W))
             elif is_middle and layout_key >= 4:
                 real = [i for i in seat_indices if i is not None]
                 if len(real) == 1:
@@ -181,7 +203,7 @@ class TableView:
                 elif len(real) >= 2:
                     lines.extend(self._sides_with_center(real[:2], center))
                 else:
-                    lines.extend(self._center_only(center))
+                    lines.extend(self._centered_block(center, CENTER_BOX_W))
             else:
                 real = [i for i in seat_indices if i is not None]
                 lines.extend(self._seat_row(real))
@@ -201,25 +223,11 @@ class TableView:
         boxes = [_make_player_box(self._get_player(i)) for i in indices]
         if not boxes:
             return []
+        joined, total_w = _join_boxes_horizontal(boxes)
+        return [_center_line(line, total_w) for line in joined]
 
-        full_w = BOX_W + 2
-        gap = 2
-        total = len(boxes) * full_w + (len(boxes) - 1) * gap
-        left = max(0, (TABLE_W - total) // 2)
-
-        num_lines = len(boxes[0])
-        result = []
-        for line_idx in range(num_lines):
-            parts = []
-            for b_idx, box in enumerate(boxes):
-                if b_idx > 0:
-                    parts.append(" " * gap)
-                parts.append(box[line_idx])
-            result.append(" " * left + "".join(parts))
-        return result
-
-    def _center_only(self, center: list[str]) -> list[str]:
-        return [_pad_center(line, TABLE_W) for line in center]
+    def _centered_block(self, block: list[str], block_w: int) -> list[str]:
+        return [_center_line(line, block_w) for line in block]
 
     def _sides_with_center(self, seat_indices: list[int | None], center: list[str]) -> list[str]:
         left_idx = seat_indices[0] if seat_indices else None
@@ -230,17 +238,18 @@ class TableView:
 
         max_lines = max(len(left_box), len(center), len(right_box))
         while len(left_box) < max_lines:
-            left_box.insert(0, " " * (BOX_W + 2))
+            left_box.insert(0, " " * FULL_BOX_W)
         while len(right_box) < max_lines:
-            right_box.insert(0, " " * (BOX_W + 2))
+            right_box.insert(0, " " * FULL_BOX_W)
         while len(center) < max_lines:
-            center.insert(0, " " * (CENTER_W + 2))
+            center.insert(0, " " * CENTER_BOX_W)
 
-        gap = 1
+        total_w = FULL_BOX_W + GAP + CENTER_BOX_W + GAP + FULL_BOX_W
+
         result = []
         for i in range(max_lines):
-            left = left_box[i] if left_idx is not None else " " * (BOX_W + 2)
-            right = right_box[i] if right_idx is not None else " " * (BOX_W + 2)
-            line = left + " " * gap + center[i] + " " * gap + right
-            result.append(line)
+            left = left_box[i] if left_idx is not None else " " * FULL_BOX_W
+            right = right_box[i] if right_idx is not None else " " * FULL_BOX_W
+            raw = left + " " * GAP + center[i] + " " * GAP + right
+            result.append(_center_line(raw, total_w))
         return result
