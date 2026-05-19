@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
-from poker_engine.cards import (
+from poker_engine.core.cards import (
     Card,
     HandRank,
     describe_hand,

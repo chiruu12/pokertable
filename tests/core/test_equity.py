@@ -1,6 +1,7 @@
 """Tests for the equity calculator."""
 
 from poker_engine.cards import Card, Suit
+
 from poker_engine.equity import calculate_equity
 
 

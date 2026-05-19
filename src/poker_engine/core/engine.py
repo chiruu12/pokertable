@@ -6,7 +6,7 @@ import random
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from poker_engine.cards import Card, HandResult, describe_hand, evaluate_hand, make_deck
+from poker_engine.core.cards import Card, HandResult, describe_hand, evaluate_hand, make_deck
 
 
 class Phase(Enum):

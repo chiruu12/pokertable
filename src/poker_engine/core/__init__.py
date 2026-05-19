@@ -1,14 +1,5 @@
-"""Poker Engine — Pure Texas Hold'em for AI agents."""
+"""Core poker engine — pure state machine with zero dependencies."""
 
-import sys
-
-__version__ = "0.2.0"
-
-from poker_engine.core import (
-    cards,  # noqa: F401
-    engine,  # noqa: F401
-    equity,  # noqa: F401
-)
 from poker_engine.core.cards import (
     Card,
     HandRank,
@@ -30,10 +21,6 @@ from poker_engine.core.engine import (
     SidePot,
 )
 from poker_engine.core.equity import EquityResult, calculate_equity
-
-sys.modules["poker_engine.cards"] = cards
-sys.modules["poker_engine.engine"] = engine
-# Note: poker_engine.equity is now a real package (not an alias for core.equity)
 
 __all__ = [
     "Action",
