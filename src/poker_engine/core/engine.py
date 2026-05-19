@@ -89,6 +89,19 @@ class HandSummary:
     community: list[Card] = field(default_factory=list)
 
 
+def compute_opponent_style(player: PlayerState) -> str:
+    """Label a player's style based on statistical history."""
+    if player.hands_played < 3:
+        return "unknown"
+    fold_rate = player.total_folds / max(player.hands_played, 1)
+    raise_rate = player.total_raises / max(player.hands_played, 1)
+    if raise_rate > 0.3:
+        return "aggressive" if fold_rate < 0.3 else "tricky"
+    if fold_rate > 0.4:
+        return "tight"
+    return "passive"
+
+
 class PokerEngine:
     """Pure Texas Hold'em state machine."""
 

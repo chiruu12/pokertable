@@ -1,6 +1,6 @@
 """Tests for the poker engine state machine."""
 
-from poker_engine import Action, ActionType, Phase, PokerEngine
+from poker_engine import Action, ActionType, Phase, PlayerState, PokerEngine, compute_opponent_style
 
 
 def test_new_hand_deals_cards():
@@ -456,3 +456,31 @@ def test_hands_won_only_on_contested():
         player = next(p for p in engine.players if p.name == r.player_name)
         if r.contested_win:
             assert player.hands_won >= 1
+
+
+# --- Opponent style tests ---
+
+
+def test_style_unknown_under_3_hands():
+    p = PlayerState(name="X", chips=1000, hands_played=2, total_folds=1, total_raises=1)
+    assert compute_opponent_style(p) == "unknown"
+
+
+def test_style_aggressive():
+    p = PlayerState(name="X", chips=1000, hands_played=10, total_folds=2, total_raises=5)
+    assert compute_opponent_style(p) == "aggressive"
+
+
+def test_style_tricky():
+    p = PlayerState(name="X", chips=1000, hands_played=10, total_folds=4, total_raises=4)
+    assert compute_opponent_style(p) == "tricky"
+
+
+def test_style_tight():
+    p = PlayerState(name="X", chips=1000, hands_played=10, total_folds=5, total_raises=1)
+    assert compute_opponent_style(p) == "tight"
+
+
+def test_style_passive():
+    p = PlayerState(name="X", chips=1000, hands_played=10, total_folds=2, total_raises=2)
+    assert compute_opponent_style(p) == "passive"

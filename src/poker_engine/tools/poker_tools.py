@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from poker_engine.core.cards import describe_hand, evaluate_hand
-from poker_engine.core.engine import ActionType, PokerEngine
+from poker_engine.core.engine import ActionType, PokerEngine, compute_opponent_style
 from poker_engine.core.equity import calculate_equity
 from poker_engine.tools.decorator import ToolDef, tool
 from poker_engine.tools.registry import ToolRegistry
@@ -144,6 +144,7 @@ class PokerToolkit:
                     "hands_played": p.hands_played,
                     "fold_rate": round(p.total_folds / p.hands_played, 2),
                     "raise_rate": round(p.total_raises / p.hands_played, 2),
+                    "style": compute_opponent_style(p),
                 }
             if p.name in self._engine.showed_cards:
                 info["shown_cards"] = [str(c) for c in self._engine.showed_cards[p.name]]

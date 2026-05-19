@@ -28,6 +28,7 @@ from poker_engine.core.engine import (
     PokerEngine,
     ShowdownResult,
     SidePot,
+    compute_opponent_style,
 )
 from poker_engine.core.equity import EquityResult, calculate_equity
 
@@ -51,6 +52,7 @@ __all__ = [
     "SidePot",
     "Suit",
     "calculate_equity",
+    "compute_opponent_style",
     "describe_hand",
     "evaluate_hand",
     "make_deck",
