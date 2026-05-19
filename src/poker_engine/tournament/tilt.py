@@ -44,11 +44,13 @@ def assess_tilt(
             if stype in tilt.active_stressors:
                 del tilt.active_stressors[stype]
                 if event_bus:
-                    event_bus.emit(TiltResolvedEvent(
-                        player=player.name,
-                        stressor_type=stype,
-                        reason="Won a hand",
-                    ))
+                    event_bus.emit(
+                        TiltResolvedEvent(
+                            player=player.name,
+                            stressor_type=stype,
+                            reason="Won a hand",
+                        )
+                    )
     else:
         tilt.loss_streak += 1
 
@@ -56,55 +58,75 @@ def assess_tilt(
             severity = 0.4 + min(0.5, (1 - player.chips / starting_chips) * 0.3)
             tilt.active_stressors[STRESSOR_EXISTENTIAL_THREAT] = round(severity, 2)
             if event_bus:
-                event_bus.emit(TiltEvent(
-                    player=player.name,
-                    stressor_type=STRESSOR_EXISTENTIAL_THREAT,
-                    description=f"Chip stack critical: {player.chips} chips",
-                    severity=severity,
-                ))
+                event_bus.emit(
+                    TiltEvent(
+                        player=player.name,
+                        stressor_type=STRESSOR_EXISTENTIAL_THREAT,
+                        description=f"Chip stack critical: {player.chips} chips",
+                        severity=severity,
+                    )
+                )
 
         if not player.folded:
             prev = tilt.active_stressors.get(STRESSOR_REPEATED_FAILURE, 0.2)
             severity = min(1.0, prev + 0.05)
             tilt.active_stressors[STRESSOR_REPEATED_FAILURE] = round(severity, 2)
             if event_bus:
-                event_bus.emit(TiltEvent(
-                    player=player.name,
-                    stressor_type=STRESSOR_REPEATED_FAILURE,
-                    description="Lost another hand",
-                    severity=severity,
-                ))
+                event_bus.emit(
+                    TiltEvent(
+                        player=player.name,
+                        stressor_type=STRESSOR_REPEATED_FAILURE,
+                        description="Lost another hand",
+                        severity=severity,
+                    )
+                )
 
         if tilt.loss_streak >= 5:
             tilt.active_stressors[STRESSOR_INVISIBILITY] = 0.35
             if event_bus:
-                event_bus.emit(TiltEvent(
-                    player=player.name,
-                    stressor_type=STRESSOR_INVISIBILITY,
-                    description=f"No win in {tilt.loss_streak} hands",
-                    severity=0.35,
-                ))
+                event_bus.emit(
+                    TiltEvent(
+                        player=player.name,
+                        stressor_type=STRESSOR_INVISIBILITY,
+                        description=f"No win in {tilt.loss_streak} hands",
+                        severity=0.35,
+                    )
+                )
 
         if player.hands_played >= 5:
             fold_rate = player.total_folds / max(player.hands_played, 1)
             if fold_rate > 0.6:
                 tilt.active_stressors[STRESSOR_FUTILITY] = 0.3
                 if event_bus:
-                    event_bus.emit(TiltEvent(
-                        player=player.name,
-                        stressor_type=STRESSOR_FUTILITY,
-                        description=f"Folding too often ({fold_rate:.0%})",
-                        severity=0.3,
-                    ))
+                    event_bus.emit(
+                        TiltEvent(
+                            player=player.name,
+                            stressor_type=STRESSOR_FUTILITY,
+                            description=f"Folding too often ({fold_rate:.0%})",
+                            severity=0.3,
+                        )
+                    )
+            elif STRESSOR_FUTILITY in tilt.active_stressors:
+                del tilt.active_stressors[STRESSOR_FUTILITY]
+                if event_bus:
+                    event_bus.emit(
+                        TiltResolvedEvent(
+                            player=player.name,
+                            stressor_type=STRESSOR_FUTILITY,
+                            reason="Fold rate recovered below 60%",
+                        )
+                    )
 
     if won and STRESSOR_EXISTENTIAL_THREAT in tilt.active_stressors:
         if player.chips >= starting_chips * 0.3:
             del tilt.active_stressors[STRESSOR_EXISTENTIAL_THREAT]
             if event_bus:
-                event_bus.emit(TiltResolvedEvent(
-                    player=player.name,
-                    stressor_type=STRESSOR_EXISTENTIAL_THREAT,
-                    reason="Chips recovered above 30%",
-                ))
+                event_bus.emit(
+                    TiltResolvedEvent(
+                        player=player.name,
+                        stressor_type=STRESSOR_EXISTENTIAL_THREAT,
+                        reason="Chips recovered above 30%",
+                    )
+                )
 
     return tilt

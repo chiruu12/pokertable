@@ -57,7 +57,10 @@ def test_invisibility_after_5_losses():
 
 def test_futility_on_high_fold_rate():
     player = PlayerState(
-        name="A", chips=800, hands_played=10, total_folds=7,
+        name="A",
+        chips=800,
+        hands_played=10,
+        total_folds=7,
     )
     tilt = TiltState(player_name="A")
     summary = _make_summary(["B"])
@@ -116,3 +119,19 @@ def test_tilt_no_event_bus():
     summary = _make_summary(["B"])
     assess_tilt(player, summary, tilt, starting_chips=1000, event_bus=None)
     assert STRESSOR_EXISTENTIAL_THREAT in tilt.active_stressors
+
+
+def test_futility_resolves_when_fold_rate_drops():
+    player = PlayerState(
+        name="A",
+        chips=800,
+        hands_played=10,
+        total_folds=4,
+    )
+    tilt = TiltState(
+        player_name="A",
+        active_stressors={STRESSOR_FUTILITY: 0.3},
+    )
+    summary = _make_summary(["B"])
+    assess_tilt(player, summary, tilt, starting_chips=1000)
+    assert STRESSOR_FUTILITY not in tilt.active_stressors

@@ -91,7 +91,22 @@ class HandSummary:
 
 POSITION_LABELS_HU = ["Dealer/SB", "BB"]
 POSITION_LABELS_3 = ["Dealer", "SB", "BB"]
-POSITION_LABELS_4P = ["Dealer", "SB", "BB", "UTG", "UTG+1", "CO", "HJ", "LJ"]
+POSITION_LABELS_4 = ["Dealer", "SB", "BB", "UTG"]
+POSITION_LABELS_5 = ["Dealer", "SB", "BB", "UTG", "CO"]
+POSITION_LABELS_6 = ["Dealer", "SB", "BB", "UTG", "HJ", "CO"]
+POSITION_LABELS_7 = ["Dealer", "SB", "BB", "UTG", "UTG+1", "HJ", "CO"]
+POSITION_LABELS_8 = ["Dealer", "SB", "BB", "UTG", "UTG+1", "LJ", "HJ", "CO"]
+POSITION_LABELS_9 = ["Dealer", "SB", "BB", "UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO"]
+POSITION_LABELS_BY_SIZE = {
+    2: POSITION_LABELS_HU,
+    3: POSITION_LABELS_3,
+    4: POSITION_LABELS_4,
+    5: POSITION_LABELS_5,
+    6: POSITION_LABELS_6,
+    7: POSITION_LABELS_7,
+    8: POSITION_LABELS_8,
+    9: POSITION_LABELS_9,
+}
 
 
 def compute_opponent_style(player: PlayerState) -> str:
@@ -142,6 +157,7 @@ class PokerEngine:
         self._action_pos = 0
         self.showed_cards: dict[str, list[Card]] = {}
         self._raises_this_round = 0
+        self._position_labels: dict[str, str] = {}
 
     def new_hand(self) -> None:
         """Shuffle, deal, post blinds, start pre-flop."""
@@ -159,6 +175,7 @@ class PokerEngine:
         self.action_log = []
         self.last_raiser = None
         self.showed_cards = {}
+        self._raises_this_round = 0
         self._deck_idx = 0
 
         for p in self.players:
@@ -189,6 +206,7 @@ class PokerEngine:
         self._post_blinds()
         self.phase = Phase.PRE_FLOP
         self._set_action_order_preflop()
+        self._position_labels = self._compute_position_labels()
 
     def _deal(self) -> Card:
         card = self.deck[self._deck_idx]
@@ -274,10 +292,7 @@ class PokerEngine:
             call_amount = min(cost_to_call, p.chips)
             actions.append(Action(ActionType.CALL, call_amount))
 
-        can_raise = (
-            p.chips > cost_to_call
-            and self._raises_this_round < self._max_raises_per_round
-        )
+        can_raise = p.chips > cost_to_call and self._raises_this_round < self._max_raises_per_round
         if can_raise:
             min_raise_to = self.current_bet + self.min_raise
             min_raise_cost = min_raise_to - p.bet_this_round
@@ -525,11 +540,10 @@ class PokerEngine:
         )
 
     def resolve_fold_win(self) -> HandSummary:
-        """Award pot to last player standing."""
+        """Award pot to last player standing (uncontested — no hands_won increment)."""
         active = [p for p in self.players if not p.folded]
         winner = active[0] if active else self.players[0]
         winner.chips += self.pot
-        winner.hands_won += 1
         self.phase = Phase.HAND_OVER
         return HandSummary(
             hand_num=self.hand_num,
@@ -599,33 +613,33 @@ class PokerEngine:
         return self.players[sb_idx], self.players[bb_idx]
 
     def get_position_labels(self) -> dict[str, str]:
-        """Return position label for each active player."""
-        alive = [p for p in self.players if not p.folded]
-        n = len(alive)
+        """Return position labels cached at hand start."""
+        return dict(self._position_labels)
+
+    def _compute_position_labels(self) -> dict[str, str]:
+        """Compute position labels from players dealt into the hand."""
+        dealt_in = [p for p in self.players if not p.folded]
+        n = len(dealt_in)
         if n == 0:
             return {}
         try:
             dealer_pos = next(
-                i for i, p in enumerate(alive)
-                if p.name == self.players[self.dealer_idx].name
+                i for i, p in enumerate(dealt_in) if p.name == self.players[self.dealer_idx].name
             )
         except StopIteration:
-            return {p.name: "" for p in alive}
+            return {p.name: "" for p in dealt_in}
 
-        if n == 2:
-            labels_list = POSITION_LABELS_HU
-        elif n == 3:
-            labels_list = POSITION_LABELS_3
-        else:
-            labels_list = POSITION_LABELS_4P
+        labels_list = POSITION_LABELS_BY_SIZE.get(n)
+        if labels_list is None:
+            labels_list = POSITION_LABELS_9
 
         labels: dict[str, str] = {}
         for i in range(n):
             pos = (i - dealer_pos) % n
             if pos < len(labels_list):
-                labels[alive[i].name] = labels_list[pos]
+                labels[dealt_in[i].name] = labels_list[pos]
             else:
-                labels[alive[i].name] = f"Seat{pos}"
+                labels[dealt_in[i].name] = labels_list[-1]
         return labels
 
     def _get_player(self, name: str) -> PlayerState:

@@ -169,8 +169,12 @@ def test_chips_conserved_across_hand():
 
 def test_ante_posts_before_blinds():
     engine = PokerEngine(
-        ["A", "B", "C"], starting_chips=1000,
-        small_blind=10, big_blind=20, ante=5, seed=1,
+        ["A", "B", "C"],
+        starting_chips=1000,
+        small_blind=10,
+        big_blind=20,
+        ante=5,
+        seed=1,
     )
     engine.new_hand()
     # 3 players x 5 ante = 15, plus SB 10 + BB 20 = 30 → total pot = 45
@@ -179,8 +183,12 @@ def test_ante_posts_before_blinds():
 
 def test_ante_zero_no_effect():
     engine = PokerEngine(
-        ["A", "B", "C"], starting_chips=1000,
-        small_blind=10, big_blind=20, ante=0, seed=1,
+        ["A", "B", "C"],
+        starting_chips=1000,
+        small_blind=10,
+        big_blind=20,
+        ante=0,
+        seed=1,
     )
     engine.new_hand()
     assert engine.pot == 30
@@ -281,8 +289,10 @@ def test_raise_cap_resets_each_phase():
 
 def test_raise_cap_zero_means_no_raises():
     engine = PokerEngine(
-        ["A", "B", "C"], starting_chips=1000,
-        max_raises_per_round=0, seed=1,
+        ["A", "B", "C"],
+        starting_chips=1000,
+        max_raises_per_round=0,
+        seed=1,
     )
     engine.new_hand()
     p = engine.get_current_player()
@@ -299,15 +309,53 @@ def test_raise_cap_default_is_four():
 
 def test_all_in_does_not_count_toward_cap():
     engine = PokerEngine(
-        ["A", "B", "C"], starting_chips=1000, seed=1,
+        ["A", "B", "C"],
+        starting_chips=1000,
+        seed=1,
     )
     engine.new_hand()
     p = engine.get_current_player()
     assert p is not None
     engine.apply_action(
-        p.name, Action(ActionType.ALL_IN, p.chips + p.bet_this_round),
+        p.name,
+        Action(ActionType.ALL_IN, p.chips + p.bet_this_round),
     )
     assert engine._raises_this_round == 0
+
+
+def test_raise_cap_resets_between_hands():
+    engine = PokerEngine(
+        ["A", "B", "C"],
+        starting_chips=10000,
+        seed=1,
+    )
+    engine.new_hand()
+    # Make some raises
+    for _ in range(3):
+        p = engine.get_current_player()
+        if p is None:
+            break
+        actions = engine.get_valid_actions(p.name)
+        raises = [a for a in actions if a.type == ActionType.RAISE]
+        if raises:
+            engine.apply_action(p.name, raises[0])
+    assert engine._raises_this_round > 0
+    # Complete hand
+    while not engine.is_betting_round_complete():
+        p = engine.get_current_player()
+        if p is None:
+            break
+        engine.apply_action(p.name, Action(ActionType.FOLD))
+    engine.resolve_fold_win()
+    engine.rotate_dealer()
+    # Start new hand — raises should be reset
+    engine.new_hand()
+    assert engine._raises_this_round == 0
+    p = engine.get_current_player()
+    assert p is not None
+    actions = engine.get_valid_actions(p.name)
+    raises = [a for a in actions if a.type == ActionType.RAISE]
+    assert len(raises) > 0
 
 
 # --- Half-pot raise tests ---
@@ -326,8 +374,11 @@ def test_half_pot_raise_option_exists():
 
 def test_half_pot_amount_calculation():
     engine = PokerEngine(
-        ["A", "B", "C"], starting_chips=1000,
-        small_blind=10, big_blind=20, seed=1,
+        ["A", "B", "C"],
+        starting_chips=1000,
+        small_blind=10,
+        big_blind=20,
+        seed=1,
     )
     engine.new_hand()
     p = engine.get_current_player()
@@ -343,8 +394,11 @@ def test_half_pot_amount_calculation():
 
 def test_half_pot_skipped_when_equals_min_raise():
     engine = PokerEngine(
-        ["A", "B"], starting_chips=1000,
-        small_blind=10, big_blind=20, seed=1,
+        ["A", "B"],
+        starting_chips=1000,
+        small_blind=10,
+        big_blind=20,
+        seed=1,
     )
     engine.new_hand()
     p = engine.get_current_player()
@@ -358,8 +412,11 @@ def test_half_pot_skipped_when_equals_min_raise():
 
 def test_half_pot_skipped_when_cant_afford():
     engine = PokerEngine(
-        ["A", "B", "C"], starting_chips=50,
-        small_blind=10, big_blind=20, seed=1,
+        ["A", "B", "C"],
+        starting_chips=50,
+        small_blind=10,
+        big_blind=20,
+        seed=1,
     )
     engine.new_hand()
     p = engine.get_current_player()
@@ -374,7 +431,9 @@ def test_half_pot_skipped_when_cant_afford():
 def test_half_pot_respects_raise_cap():
     engine = PokerEngine(
         ["A", "B", "C", "D", "E", "F"],
-        starting_chips=10000, max_raises_per_round=1, seed=1,
+        starting_chips=10000,
+        max_raises_per_round=1,
+        seed=1,
     )
     engine.new_hand()
     p = engine.get_current_player()
@@ -523,11 +582,26 @@ def test_position_labels_6_players():
     assert "BB" in vals
 
 
+def test_position_labels_stable_after_fold():
+    engine = PokerEngine(["A", "B", "C", "D"], seed=1)
+    engine.new_hand()
+    labels_before = engine.get_position_labels()
+    # Player folds
+    p = engine.get_current_player()
+    if p is not None:
+        engine.apply_action(p.name, Action(ActionType.FOLD))
+    labels_after = engine.get_position_labels()
+    assert labels_before == labels_after
+
+
 def test_position_labels_9_players():
     names = [f"P{i}" for i in range(9)]
     engine = PokerEngine(names, seed=1)
     engine.new_hand()
     labels = engine.get_position_labels()
     assert len(labels) == 9
-    # 8 labels in POSITION_LABELS_4P + 1 overflow
-    assert "Seat8" in labels.values()
+    vals = set(labels.values())
+    assert "CO" in vals
+    assert "HJ" in vals
+    assert "LJ" in vals
+    assert "UTG+2" in vals

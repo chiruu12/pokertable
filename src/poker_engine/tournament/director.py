@@ -321,6 +321,7 @@ class TournamentDirector:
             for table in active_tables:
                 table.engine._small_blind = blind.small_blind
                 table.engine._big_blind = blind.big_blind
+                table.engine._ante = blind.ante
 
                 orch = HandOrchestrator(
                     table.engine,

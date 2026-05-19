@@ -20,7 +20,7 @@ from poker_engine.core.cards import (
 )
 from poker_engine.core.engine import (
     POSITION_LABELS_3,
-    POSITION_LABELS_4P,
+    POSITION_LABELS_BY_SIZE,
     POSITION_LABELS_HU,
     Action,
     ActionResult,
@@ -49,7 +49,7 @@ __all__ = [
     "HandResult",
     "HandSummary",
     "POSITION_LABELS_3",
-    "POSITION_LABELS_4P",
+    "POSITION_LABELS_BY_SIZE",
     "POSITION_LABELS_HU",
     "Phase",
     "PlayerState",
