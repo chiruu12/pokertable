@@ -7,6 +7,7 @@ from typing import Any
 
 from rich.layout import Layout
 from rich.live import Live
+from rich.text import Text
 
 from poker_engine.tournament.director import TournamentDirector, TournamentResult
 from poker_engine.tournament.events import (
@@ -57,8 +58,19 @@ class PokerTUI:
 
         elif isinstance(event, PhaseChangeEvent):
             self._table_view.update_community(event.community)
-            cards = " ".join(event.community)
-            self._action_feed.add("Board", f"{event.phase}: {cards}")
+
+            line = Text()
+            line.append("Board ", style="bold yellow")
+            line.append(f"{event.phase}: ", style="yellow")
+            for i, c in enumerate(event.community):
+                if i > 0:
+                    line.append(" ")
+                suit = c[-1] if c else ""
+                style = {"♥": "bold red", "♦": "bold red", "♠": "bold blue", "♣": "bold blue"}.get(
+                    suit, "white"
+                )
+                line.append(c, style=style)
+            self._action_feed.add_rich(line)
 
         elif isinstance(event, ActionEvent):
             self._action_feed.add(event.player, event.action, event.amount)
@@ -135,6 +147,8 @@ class PokerTUI:
                 if p.name == active and folded_action == "fold":
                     folded = True
 
+                hole_cards = [str(c) for c in p.hole_cards] if p.hole_cards else []
+
                 player_list.append(
                     {
                         "name": p.name,
@@ -142,6 +156,7 @@ class PokerTUI:
                         "position_tag": tag,
                         "is_active": is_active,
                         "folded": folded,
+                        "hole_cards": hole_cards,
                     }
                 )
 
@@ -155,7 +170,7 @@ class PokerTUI:
     def build_layout(self) -> Layout:
         layout = Layout()
         layout.split_column(
-            Layout(name="table", size=16),
+            Layout(name="table", size=18),
             Layout(name="middle", size=10),
             Layout(name="stats", size=10),
         )

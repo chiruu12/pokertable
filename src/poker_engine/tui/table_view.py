@@ -22,7 +22,7 @@ SEAT_LAYOUTS: dict[int, list[list[int | None]]] = {
     9: [[3, 4, 5], [2, 6], [0, 1, 7, 8]],
 }
 
-SUIT_COLORS = {"♥": "bold red", "♦": "bold red", "♠": "bold blue", "♣": "bold blue"}
+SUIT_STYLES = {"♥": "bold red", "♦": "bold red", "♠": "bold blue", "♣": "bold blue"}
 
 
 def _pad_center(text: str, width: int) -> str:
@@ -33,37 +33,57 @@ def _pad_center(text: str, width: int) -> str:
 
 
 def _color_card(c: str) -> str:
-    for suit, style in SUIT_COLORS.items():
+    for suit, style in SUIT_STYLES.items():
         if suit in c:
             return f"[{style}]{c}[/{style}]"
     return c
 
 
-def _color_cards(cards: list[str]) -> str:
+def _color_cards_inline(cards: list[str]) -> str:
     return " ".join(_color_card(c) for c in cards)
+
+
+def _color_cards_padded(cards: list[str], width: int) -> str:
+    plain = " ".join(cards)
+    rich = _color_cards_inline(cards)
+    pad = max(0, (width - len(plain)) // 2)
+    fill = max(0, width - pad - len(plain))
+    return " " * pad + rich + " " * fill
 
 
 def _make_player_box(player: dict[str, Any] | None) -> list[str]:
     full_w = BOX_W + 2
     if player is None:
         blank = " " * full_w
-        return [blank, blank, blank, blank]
+        return [blank, blank, blank, blank, blank]
 
     name = player["name"]
     chips = player["chips"]
     tag = player.get("position_tag", "")
     is_active = player.get("is_active", False)
     folded = player.get("folded", False)
+    hole_cards = player.get("hole_cards", [])
 
     name_str = f"{name} [{tag}]" if tag else name
     chip_str = f"${chips:,}"
 
+    if hole_cards:
+        cards_plain = " ".join(hole_cards)
+        cards_rich = _color_cards_inline(hole_cards)
+    else:
+        cards_plain = "?? ??"
+        cards_rich = "[dim]?? ??[/dim]"
+
     name_str = _pad_center(name_str[:BOX_W], BOX_W)
     chip_str = _pad_center(chip_str[:BOX_W], BOX_W)
+    cards_pad = max(0, (BOX_W - len(cards_plain)) // 2)
+    cards_fill = max(0, BOX_W - cards_pad - len(cards_plain))
+    cards_line = " " * cards_pad + cards_rich + " " * cards_fill
 
     if folded:
         name_str = f"[dim]{name_str}[/dim]"
         chip_str = f"[dim]{chip_str}[/dim]"
+        cards_line = f"[dim]{_pad_center('folded', BOX_W)}[/dim]"
     elif is_active:
         name_str = f"[bold bright_green]{name_str}[/bold bright_green]"
         chip_str = f"[bright_green]{chip_str}[/bright_green]"
@@ -73,6 +93,7 @@ def _make_player_box(player: dict[str, Any] | None) -> list[str]:
         f"┌{border}┐",
         f"│{name_str}│",
         f"│{chip_str}│",
+        f"│{cards_line}│",
         f"└{border}┘",
     ]
 
@@ -85,18 +106,16 @@ def _make_center_box(community: list[str], pot: int, hand_num: int) -> list[str]
         cards_rich = f"[dim]{cards_plain}[/dim]"
     elif n == 3:
         phase = "Flop"
-        plain_cards = " ".join(community)
-        cards_plain = plain_cards + "   ─   ─"
-        cards_rich = _color_cards(community) + "   [dim]─   ─[/dim]"
+        cards_plain = " ".join(community) + "   ─   ─"
+        cards_rich = _color_cards_inline(community) + "   [dim]─   ─[/dim]"
     elif n == 4:
         phase = "Turn"
-        plain_cards = " ".join(community)
-        cards_plain = plain_cards + "   ─"
-        cards_rich = _color_cards(community) + "   [dim]─[/dim]"
+        cards_plain = " ".join(community) + "   ─"
+        cards_rich = _color_cards_inline(community) + "   [dim]─[/dim]"
     else:
         phase = "River"
         cards_plain = " ".join(community)
-        cards_rich = _color_cards(community)
+        cards_rich = _color_cards_inline(community)
 
     title = f"Hand #{hand_num} · {phase}"
     pot_str = f"Pot: ${pot:,}"
@@ -105,9 +124,8 @@ def _make_center_box(community: list[str], pot: int, hand_num: int) -> list[str]
     pot_line = _pad_center(pot_str, CENTER_W)
 
     cards_pad = max(0, (CENTER_W - len(cards_plain)) // 2)
-    cards_line = " " * cards_pad + cards_rich
     cards_fill = max(0, CENTER_W - cards_pad - len(cards_plain))
-    cards_line += " " * cards_fill
+    cards_line = " " * cards_pad + cards_rich + " " * cards_fill
 
     border = "─" * CENTER_W
     return [
@@ -173,7 +191,7 @@ class TableView:
             text,
             title="[bold green]♠ ♥ Poker Table ♦ ♣[/bold green]",
             border_style="green",
-            height=16,
+            height=18,
         )
 
     def _get_player(self, idx: int) -> dict[str, Any] | None:
@@ -189,8 +207,9 @@ class TableView:
         total = len(boxes) * full_w + (len(boxes) - 1) * gap
         left = max(0, (TABLE_W - total) // 2)
 
+        num_lines = len(boxes[0])
         result = []
-        for line_idx in range(4):
+        for line_idx in range(num_lines):
             parts = []
             for b_idx, box in enumerate(boxes):
                 if b_idx > 0:

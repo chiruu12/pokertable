@@ -17,13 +17,6 @@ class ActionFeed:
         self._entries: deque[Text] = deque(maxlen=maxlen)
 
     def add(self, player: str, action: str, amount: int = 0) -> None:
-        """Record an action to the feed.
-
-        Args:
-            player: Player name.
-            action: Action string (fold, call, check, raise, all_in).
-            amount: Chip amount for the action (0 if not applicable).
-        """
         color = ACTION_COLORS.get(action, "white")
         line = Text()
         line.append(f"{player} ", style="bold")
@@ -33,8 +26,10 @@ class ActionFeed:
             line.append(action, style=color)
         self._entries.append(line)
 
+    def add_rich(self, text: Text) -> None:
+        self._entries.append(text)
+
     def render(self) -> Panel:
-        """Render the action feed as a Rich Panel."""
         content = Text()
         for i, entry in enumerate(self._entries):
             if i > 0:
