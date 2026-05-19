@@ -44,15 +44,25 @@ class HandOrchestrator:
         event_bus: EventBus,
         table_talk: bool = True,
         phase_delay: float = 0.0,
+        action_delay: float = 0.0,
     ) -> None:
         self._engine = engine
         self._players = players
         self._event_bus = event_bus
         self._table_talk = table_talk
         self._phase_delay = phase_delay
+        self._action_delay = action_delay
         self._toolkits: dict[str, PokerToolkit] = {
             name: PokerToolkit(engine, name, table_talk=table_talk) for name in players
         }
+
+    async def _yield(self, delay: float = 0.0) -> None:
+        """Yield to event loop so TUI can render. Uses action_delay if set."""
+        t = delay or self._action_delay
+        if t > 0:
+            await asyncio.sleep(t)
+        else:
+            await asyncio.sleep(0)
 
     async def play_hand(self) -> Any:
         engine = self._engine
@@ -65,11 +75,10 @@ class HandOrchestrator:
                 dealer=dealer.name,
             )
         )
-        await asyncio.sleep(0.05)
 
         hands = {p.name: [str(c) for c in p.hole_cards] for p in engine.players if not p.folded}
         self._event_bus.emit(CardsDealtEvent(hands=hands))
-        await asyncio.sleep(0.05)
+        await self._yield()
 
         for name, player in self._players.items():
             await player.observe({"type": "new_hand", "hand_num": engine.hand_num})
@@ -90,9 +99,7 @@ class HandOrchestrator:
                         community=[str(c) for c in engine.community],
                     )
                 )
-                await asyncio.sleep(0.05)
-                if self._phase_delay > 0:
-                    await asyncio.sleep(self._phase_delay)
+                await self._yield(self._phase_delay or self._action_delay)
                 continue
 
             current = engine.get_current_player()
@@ -136,7 +143,6 @@ class HandOrchestrator:
                     pot=engine.pot,
                 )
             )
-            await asyncio.sleep(0.05)
 
             for name, p in self._players.items():
                 if name != current.name:
@@ -176,6 +182,8 @@ class HandOrchestrator:
                 except Exception:
                     pass
 
+            await self._yield()
+
         active = [p for p in engine.players if not p.folded]
         if len(active) <= 1:
             summary = engine.resolve_fold_win()
@@ -192,7 +200,6 @@ class HandOrchestrator:
                     for r in summary.results
                 ]
                 self._event_bus.emit(ShowdownEvent(results=showdown_results))
-                await asyncio.sleep(0.05)
 
         self._event_bus.emit(
             HandEndEvent(
@@ -201,7 +208,7 @@ class HandOrchestrator:
                 win_reason=summary.win_reason,
             )
         )
-        await asyncio.sleep(0.05)
+        await self._yield()
         engine.rotate_dealer()
 
         return summary
@@ -243,6 +250,7 @@ class TournamentDirector:
         seed: int | None = None,
         hand_delay: float = 0.0,
         phase_delay: float = 0.0,
+        action_delay: float = 0.0,
         max_hands: int = 500,
         table_talk: bool = True,
     ) -> None:
@@ -253,6 +261,7 @@ class TournamentDirector:
         self._seed = seed
         self._hand_delay = hand_delay
         self._phase_delay = phase_delay
+        self._action_delay = action_delay
         self._max_hands = max_hands
         self._table_talk = table_talk
         self._event_bus = EventBus()
@@ -318,6 +327,7 @@ class TournamentDirector:
                     self._event_bus,
                     table_talk=self._table_talk,
                     phase_delay=self._phase_delay,
+                    action_delay=self._action_delay,
                 )
                 summary = await orch.play_hand()
 
