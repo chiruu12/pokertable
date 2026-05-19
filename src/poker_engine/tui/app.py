@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from rich.console import Console
 from rich.layout import Layout
 from rich.live import Live
 from rich.text import Text
@@ -34,8 +35,9 @@ from poker_engine.tui.table_view import TableView
 class PokerTUI:
     """Rich-based terminal UI for watching a poker tournament.
 
-    All state is driven purely by events — the TUI never reads from the
-    engine directly. This keeps the board and action feed perfectly in sync.
+    State is driven by events. Painting is driven by the orchestrator's
+    yield points — NOT by Rich's auto-refresh timer. This guarantees
+    the board and action feed are always in sync.
     """
 
     def __init__(self, director: TournamentDirector) -> None:
@@ -48,7 +50,9 @@ class PokerTUI:
 
         self._current_blind: dict[str, Any] | None = None
         self._hands_played: int = 0
+        self._console = Console()
         self._live: Live | None = None
+        self._dirty = False
 
         self._player_state: dict[str, dict[str, Any]] = {}
 
@@ -125,12 +129,16 @@ class PokerTUI:
             self._action_feed.add(event.player, f"eliminated (#{event.position})")
 
         self._push_state_to_views()
+        self._dirty = True
 
-        if self._live is not None:
+    def paint(self) -> None:
+        """Force a screen paint. Called from the orchestrator's yield points."""
+        if self._live is not None and self._dirty:
             self._live.update(self.build_layout())
+            self._live.refresh()
+            self._dirty = False
 
     def _sync_chips_from_engine(self) -> None:
-        """Pull chip counts and position tags from engine (these change on actions)."""
         for table in self._director.tables:
             engine = table.engine
             dealer = engine.get_dealer()
@@ -163,7 +171,6 @@ class PokerTUI:
                 ps["position_tag"] = tag
 
     def _push_state_to_views(self) -> None:
-        """Push current player state to table view and stats panel."""
         player_list = list(self._player_state.values())
         self._table_view.update_players(player_list)
 
@@ -201,13 +208,15 @@ class PokerTUI:
 
         with Live(
             self.build_layout(),
-            refresh_per_second=10,
+            auto_refresh=False,
             screen=False,
+            console=self._console,
         ) as live:
             self._live = live
             while not tournament_task.done():
+                self.paint()
                 await asyncio.sleep(0.1)
-            live.update(self.build_layout())
+            self.paint()
             await asyncio.sleep(0.5)
         self._live = None
 
