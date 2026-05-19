@@ -94,29 +94,7 @@ class LLMPokerPlayer:
         return self._last_thought
 
     async def get_table_talk(self, gs: dict[str, Any]) -> str | None:
-        if self._rng.random() > 0.35:
-            return None
-        try:
-            r = await self._client.chat.completions.create(
-                model=self._model_id,
-                messages=[
-                    {"role": "system", "content": (
-                        f"{self._personality}\n"
-                        "Say ONE short sentence to the other players at the poker table. "
-                        "Stay in character. Be creative — trash talk, bluff, compliment, "
-                        "or comment on the hand. Just the sentence, nothing else."
-                    )},
-                    {"role": "user", "content": f"Pot: ${gs.get('pot', 0)}. Say something."},
-                ],
-                max_tokens=40,
-                temperature=1.0,
-            )
-            msg = (r.choices[0].message.content or "").strip()
-            msg = re.sub(r"<think>.*?</think>", "", msg, flags=re.DOTALL).strip()
-            msg = msg.strip('"').strip("'")
-            return msg[:100] if msg else None
-        except Exception:
-            return None
+        return None
 
     def _prompt(self, gs: dict[str, Any], actions: list[dict[str, Any]]) -> str:
         lines = [f"Phase: {gs.get('phase')}", f"Pot: ${gs.get('pot', 0)}"]

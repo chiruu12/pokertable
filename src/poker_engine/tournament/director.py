@@ -99,7 +99,8 @@ class HandOrchestrator:
                         community=[str(c) for c in engine.community],
                     )
                 )
-                await self._yield(self._phase_delay or self._action_delay)
+                if self._phase_delay > 0:
+                    await asyncio.sleep(self._phase_delay)
                 continue
 
             current = engine.get_current_player()
