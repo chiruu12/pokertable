@@ -1,6 +1,6 @@
 [project]
 name = "pokertable"
-version = "0.2.0"
+version = "1.0.0"
 description = "Pure Texas Hold'em engine with LLM agent tournament framework and TUI."
 authors = [{ name = "chiruu12" }]
 license = { text = "MIT" }

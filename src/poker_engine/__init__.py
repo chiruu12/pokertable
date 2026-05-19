@@ -2,7 +2,7 @@
 
 import sys
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"
 
 from poker_engine.core import (
     cards,  # noqa: F401
