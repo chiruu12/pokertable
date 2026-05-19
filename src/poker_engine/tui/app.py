@@ -9,10 +9,12 @@ from rich.layout import Layout
 from rich.live import Live
 from rich.text import Text
 
+from poker_engine.tui.card_display import style_for_card
 from poker_engine.tournament.director import TournamentDirector, TournamentResult
 from poker_engine.tournament.events import (
     ActionEvent,
     BlindLevelEvent,
+    CardsDealtEvent,
     CommentaryEvent,
     EliminationEvent,
     HandEndEvent,
@@ -30,7 +32,11 @@ from poker_engine.tui.table_view import TableView
 
 
 class PokerTUI:
-    """Rich-based terminal UI for watching a poker tournament."""
+    """Rich-based terminal UI for watching a poker tournament.
+
+    All state is driven purely by events — the TUI never reads from the
+    engine directly. This keeps the board and action feed perfectly in sync.
+    """
 
     def __init__(self, director: TournamentDirector) -> None:
         self._director = director
@@ -43,25 +49,30 @@ class PokerTUI:
         self._current_blind: dict[str, Any] | None = None
         self._hands_played: int = 0
         self._live: Live | None = None
-        self._last_actor: str = ""
+
+        self._player_state: dict[str, dict[str, Any]] = {}
 
         self._director.event_bus.subscribe(self._handle_event)
 
     def _handle_event(self, event: TournamentEvent) -> None:
         if isinstance(event, HandStartEvent):
-            self._table_view.update_hand_num(event.hand_num)
             self._hands_played = event.hand_num
+            self._table_view.update_hand_num(event.hand_num)
             self._table_view.update_community([])
             self._table_view.update_pot(0)
             self._action_feed.add("Dealer", f"Hand #{event.hand_num}")
-            self._refresh_players()
+            for ps in self._player_state.values():
+                ps["folded"] = False
+                ps["is_active"] = False
+                ps["hole_cards"] = []
+
+        elif isinstance(event, CardsDealtEvent):
+            for name, cards in event.hands.items():
+                if name in self._player_state:
+                    self._player_state[name]["hole_cards"] = cards
 
         elif isinstance(event, PhaseChangeEvent):
             self._table_view.update_community(event.community)
-            self._refresh_players()
-
-            from poker_engine.tui.card_display import style_for_card
-
             line = Text()
             line.append("Board ", style="bold yellow")
             line.append(f"{event.phase}: ", style="yellow")
@@ -74,8 +85,13 @@ class PokerTUI:
         elif isinstance(event, ActionEvent):
             self._action_feed.add(event.player, event.action, event.amount)
             self._table_view.update_pot(event.pot)
-            self._last_actor = event.player
-            self._refresh_players(active=event.player, folded_action=event.action)
+            for ps in self._player_state.values():
+                ps["is_active"] = False
+            if event.player in self._player_state:
+                self._player_state[event.player]["is_active"] = True
+                if event.action == "fold":
+                    self._player_state[event.player]["folded"] = True
+            self._sync_chips_from_engine()
 
         elif isinstance(event, CommentaryEvent):
             self._commentary.add(event.player, event.text)
@@ -94,7 +110,7 @@ class PokerTUI:
         elif isinstance(event, HandEndEvent):
             winners = ", ".join(event.winners)
             self._action_feed.add(winners, f"wins ({event.win_reason})")
-            self._refresh_players()
+            self._sync_chips_from_engine()
 
         elif isinstance(event, BlindLevelEvent):
             self._current_blind = {
@@ -103,27 +119,20 @@ class PokerTUI:
                 "big_blind": event.big_blind,
                 "ante": event.ante,
             }
-            self._refresh_players()
 
         elif isinstance(event, EliminationEvent):
             self._action_feed.add(event.player, f"eliminated (#{event.position})")
-            self._refresh_players()
+
+        self._push_state_to_views()
 
         if self._live is not None:
             self._live.update(self.build_layout())
 
-    def _refresh_players(self, active: str = "", folded_action: str = "") -> None:
-        tables = self._director.tables
-        if not tables:
-            return
-
-        standings: list[dict[str, Any]] = []
-        player_list: list[dict[str, Any]] = []
-
-        for table in tables:
+    def _sync_chips_from_engine(self) -> None:
+        """Pull chip counts and position tags from engine (these change on actions)."""
+        for table in self._director.tables:
             engine = table.engine
             dealer = engine.get_dealer()
-
             try:
                 sb, bb = engine.get_sb_bb()
                 sb_name, bb_name = sb.name, bb.name
@@ -131,7 +140,17 @@ class PokerTUI:
                 sb_name = bb_name = ""
 
             for p in engine.players:
-                standings.append({"name": p.name, "chips": p.chips})
+                if p.name not in self._player_state:
+                    self._player_state[p.name] = {
+                        "name": p.name,
+                        "chips": p.chips,
+                        "position_tag": "",
+                        "is_active": False,
+                        "folded": False,
+                        "hole_cards": [],
+                    }
+                ps = self._player_state[p.name]
+                ps["chips"] = p.chips
 
                 tag = ""
                 if p.name == dealer.name:
@@ -140,26 +159,14 @@ class PokerTUI:
                     tag = "SB"
                 elif p.name == bb_name:
                     tag = "BB"
+                ps["position_tag"] = tag
 
-                is_active = p.name == active
-                folded = p.folded
-                if p.name == active and folded_action == "fold":
-                    folded = True
-
-                hole_cards = [str(c) for c in p.hole_cards] if p.hole_cards else []
-
-                player_list.append(
-                    {
-                        "name": p.name,
-                        "chips": p.chips,
-                        "position_tag": tag,
-                        "is_active": is_active,
-                        "folded": folded,
-                        "hole_cards": hole_cards,
-                    }
-                )
-
+    def _push_state_to_views(self) -> None:
+        """Push current player state to table view and stats panel."""
+        player_list = list(self._player_state.values())
         self._table_view.update_players(player_list)
+
+        standings = [{"name": ps["name"], "chips": ps["chips"]} for ps in player_list]
         self._stats.update(
             standings,
             blind_level=self._current_blind,
@@ -186,7 +193,8 @@ class PokerTUI:
         return layout
 
     async def run(self) -> TournamentResult:
-        self._refresh_players()
+        self._sync_chips_from_engine()
+        self._push_state_to_views()
 
         tournament_task = asyncio.create_task(self._director.run())
 
