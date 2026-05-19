@@ -86,6 +86,23 @@ class ShowdownEvent(TournamentEvent):
     results: list[dict[str, Any]] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class TiltEvent(TournamentEvent):
+    event_type: str = "tilt"
+    player: str = ""
+    stressor_type: str = ""
+    description: str = ""
+    severity: float = 0.0
+
+
+@dataclass(frozen=True)
+class TiltResolvedEvent(TournamentEvent):
+    event_type: str = "tilt_resolved"
+    player: str = ""
+    stressor_type: str = ""
+    reason: str = ""
+
+
 class EventBus:
     """Simple pub/sub for tournament events."""
 
