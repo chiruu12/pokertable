@@ -172,7 +172,7 @@ async def main():
         players=players,
         blind_schedule=schedule,
         starting_chips=500,
-        seed=42,
+        seed=None,
         max_hands=8,
         hand_delay=2.0,
         phase_delay=1.5,
