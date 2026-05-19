@@ -1,0 +1,13 @@
+# Provider SDKs
+anthropic>=0.40
+openai>=1.50
+# google-genai>=1.0
+
+# Agent Frameworks
+# agno>=1.0
+# langchain>=0.3
+# langchain-anthropic>=0.3
+# langchain-openai>=0.3
+# crewai>=0.80
+# pydantic-ai>=0.1
+# smolagents>=1.0
