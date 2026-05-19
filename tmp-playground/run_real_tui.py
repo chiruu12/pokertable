@@ -175,8 +175,8 @@ async def main():
         seed=None,
         max_hands=8,
         hand_delay=2.0,
-        phase_delay=1.5,
-        action_delay=0.5,
+        phase_delay=1.0,
+        action_delay=0.3,
         table_talk=True,
     )
 

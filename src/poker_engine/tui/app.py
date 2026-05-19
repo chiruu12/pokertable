@@ -61,9 +61,11 @@ class PokerTUI:
             self._table_view.update_community([])
             self._table_view.update_pot(0)
             self._action_feed.add("Dealer", f"Hand #{event.hand_num}")
+            self._sync_chips_from_engine()
             for ps in self._player_state.values():
                 ps["folded"] = False
                 ps["is_active"] = False
+                ps["hole_cards"] = []
 
         elif isinstance(event, CardsDealtEvent):
             for name, cards in event.hands.items():
@@ -126,6 +128,7 @@ class PokerTUI:
 
         if self._live is not None:
             self._live.update(self.build_layout())
+            self._live.refresh()
 
     def _sync_chips_from_engine(self) -> None:
         """Pull chip counts and position tags from engine (these change on actions)."""
@@ -199,13 +202,14 @@ class PokerTUI:
 
         with Live(
             self.build_layout(),
-            refresh_per_second=4,
+            auto_refresh=False,
             screen=False,
         ) as live:
             self._live = live
             while not tournament_task.done():
                 await asyncio.sleep(0.25)
             live.update(self.build_layout())
+            live.refresh()
             await asyncio.sleep(0.5)
         self._live = None
 
