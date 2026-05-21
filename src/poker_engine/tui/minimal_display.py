@@ -6,8 +6,6 @@ runs the tournament via director.run(), prints final standings.
 
 from __future__ import annotations
 
-from typing import Any
-
 from rich.console import Console
 from rich.table import Table
 
@@ -77,7 +75,8 @@ class MinimalDisplay:
                 c.print(f"  [dim]Dealt[/dim]  {name_pad(name)}:  {_color_cards(cards)}")
 
         elif isinstance(event, PhaseChangeEvent):
-            c.print(f"\n  [bold yellow]{event.phase}[/bold yellow]  {_color_cards(event.community)}")
+            cards = _color_cards(event.community)
+            c.print(f"\n  [bold yellow]{event.phase}[/bold yellow]  {cards}")
 
         elif isinstance(event, ActionEvent):
             style = ACTION_STYLES.get(event.action, "white")
