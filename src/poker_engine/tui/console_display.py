@@ -90,7 +90,8 @@ class ConsoleDisplay:
 
         elif isinstance(event, CardsDealtEvent):
             for name, cards in event.hands.items():
-                c.print(f"  [dim]Dealt[/dim]  {_name(name):>14}:  {_color_cards(cards)}")
+                padded = f"{_name(name):>{MAX_NAME_LEN}}"
+                c.print(f"  [dim]Dealt[/dim]  {padded}:  {_color_cards(cards)}")
 
         elif isinstance(event, PhaseChangeEvent):
             cards = _color_cards(event.community)
@@ -104,7 +105,7 @@ class ConsoleDisplay:
             elif event.action == "all_in":
                 amt = " ALL-IN"
             c.print(
-                f"    [{style}]{_name(event.player):>14}: "
+                f"    [{style}]{_name(event.player):>{MAX_NAME_LEN}}: "
                 f"{event.action}{amt}[/{style}]"
                 f"  [dim]pot ${event.pot}[/dim]"
             )
@@ -121,7 +122,8 @@ class ConsoleDisplay:
                 player = r["player"]
                 won = r["winnings"]
                 marker = "[bold green] ★[/bold green]" if won > 0 else "  "
-                c.print(f"  {marker} {_name(player):>14}:  {cards}  ->  [bold]{hand}[/bold]")
+                padded = f"{_name(player):>{MAX_NAME_LEN}}"
+                c.print(f"  {marker} {padded}:  {cards}  ->  [bold]{hand}[/bold]")
 
         elif isinstance(event, HandEndEvent):
             winners = ", ".join(event.winners)

@@ -37,20 +37,28 @@ def test_action_feed_uses_allocated_height() -> None:
 
 def test_chat_panel_truncates_and_uses_allocated_height() -> None:
     chat = ChatPanel(maxlen=20)
-    chat.add("Verbose Agent", "word " * 80)
+    long_msg = "word " * 80
+    chat.add("Verbose Agent", long_msg)
 
     panel = chat.render(height=6)
 
     assert panel.height == 6
+    rendered = str(panel.renderable)
+    assert "..." in rendered
+    assert long_msg not in rendered
 
 
 def test_commentary_panel_truncates_and_uses_allocated_height() -> None:
     thoughts = CommentaryPanel(maxlen=20)
-    thoughts.add("Kimi", "I am thinking about ranges, blockers, pressure, and table image. " * 4)
+    long_text = "I am thinking about ranges, blockers, pressure, and table image. " * 4
+    thoughts.add("Kimi", long_text)
 
     panel = thoughts.render(height=6)
 
     assert panel.height == 6
+    rendered = str(panel.renderable)
+    assert "..." in rendered
+    assert long_text not in rendered
 
 
 def test_stats_panel_uses_allocated_height() -> None:

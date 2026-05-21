@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from collections import deque
+from textwrap import shorten
 
 from rich.panel import Panel
 from rich.text import Text
+
+MAX_NAME_LEN = 14
 
 
 class ChatPanel:
@@ -17,7 +20,8 @@ class ChatPanel:
     def add(self, player: str, message: str) -> None:
         truncated = message[:72] + "..." if len(message) > 72 else message
         line = Text()
-        line.append(f"{player}: ", style="bold cyan")
+        short_name = shorten(player, width=MAX_NAME_LEN, placeholder="...")
+        line.append(f"{short_name}: ", style="bold cyan")
         line.append(truncated)
         self._entries.append(line)
 
