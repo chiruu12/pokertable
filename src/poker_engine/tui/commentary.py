@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections import deque
+from textwrap import shorten
 
 from rich.panel import Panel
 from rich.text import Text
 
 MAX_LINE_LEN = 72
+MAX_NAME_LEN = 14
 
 
 class CommentaryPanel:
@@ -21,11 +23,12 @@ class CommentaryPanel:
 
         Args:
             player: Player name who generated the thought.
-            text: Commentary text (truncated to ~80 chars).
+            text: Commentary text (truncated to 72 chars).
         """
         truncated = text[:MAX_LINE_LEN] + "..." if len(text) > MAX_LINE_LEN else text
         line = Text()
-        line.append(f"{player}: ", style="bold cyan")
+        short_name = shorten(player, width=MAX_NAME_LEN, placeholder="...")
+        line.append(f"{short_name}: ", style="bold cyan")
         line.append(truncated, style="italic")
         self._entries.append(line)
 
