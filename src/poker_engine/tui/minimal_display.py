@@ -74,7 +74,7 @@ class MinimalDisplay:
 
         elif isinstance(event, CardsDealtEvent):
             for name, cards in event.hands.items():
-                c.print(f"  [dim]Dealt[/dim]  {name:>{MAX_NAME}}:  {_color_cards(cards)}")
+                c.print(f"  [dim]Dealt[/dim]  {name_pad(name)}:  {_color_cards(cards)}")
 
         elif isinstance(event, PhaseChangeEvent):
             c.print(f"\n  [bold yellow]{event.phase}[/bold yellow]  {_color_cards(event.community)}")
